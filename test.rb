@@ -49,11 +49,11 @@ class ReadTest < Test::Unit::TestCase
     end
   end
 
-  def command_to_read
+  def command_to_read_file(path)
     if /linux/ === RUBY_PLATFORM or /darwin/ =~ RUBY_PLATFORM
-      "cat"
+      "cat #{path.to_s}"
     else
-      "type"
+      "type #{path.to_s.gsub("/", "\\")}"
     end
   end
 
@@ -65,7 +65,7 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content)
 
-    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}")
+    result, status = Open3.capture2e("ruby", "exec.rb", command_to_read_file(filepath))
 
     assert_equal 0, status.exitstatus
     assert_equal content, result
@@ -79,7 +79,7 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content, encoding: "shift_jis")
 
-    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}")
+    result, status = Open3.capture2e("ruby", "exec.rb", command_to_read_file(filepath))
 
     assert_equal(
       [0, content],
@@ -95,7 +95,7 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content, encoding: "utf-8")
 
-    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}")
+    result, status = Open3.capture2e("ruby", "exec.rb", command_to_read_file(filepath))
 
     assert_equal(
       [0, content],
@@ -112,12 +112,12 @@ class ReadTest < Test::Unit::TestCase
     make_testfile(filepath, content)
 
     Timecop.freeze(2024, 7, 9, 0, 0, 0) do
-      result = exec_command("#{command_to_read} #{filepath.to_s}", 20, nil, false)
+      result = exec_command(command_to_read_file(filepath), 20, nil, false)
       assert_nil result
     end
 
     Timecop.freeze(2024, 7, 9, 20, 0, 0) do
-      result = exec_command("#{command_to_read} #{filepath.to_s}", 20, nil, false)
+      result = exec_command(command_to_read_file(filepath), 20, nil, false)
       assert_equal content, result
     end
   end
@@ -132,19 +132,19 @@ class ReadTest < Test::Unit::TestCase
     make_testfile(filepath, content)
 
     Timecop.freeze(2024, 7, 9, 20, 0, 0) do
-      result = exec_command("#{command_to_read} #{filepath.to_s}", 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
       assert_equal content, result
     end
     Timecop.freeze(2024, 7, 9, 20, 59, 59) do
-      result = exec_command("#{command_to_read} #{filepath.to_s}", 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
       assert_nil result
     end
     Timecop.freeze(2024, 7, 10, 0, 0, 0) do
-      result = exec_command("#{command_to_read} #{filepath.to_s}", 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
       assert_nil result
     end
     Timecop.freeze(2024, 7, 10, 20, 0, 0) do
-      result = exec_command("#{command_to_read} #{filepath.to_s}", 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
       assert_equal content, result
     end
   end
@@ -158,7 +158,7 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content, encoding: "shift_jis")
 
-    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}", "--status-file", status_path.to_s, "--dry-run")
+    result, status = Open3.capture2e("ruby", "exec.rb", command_to_read_file(filepath), "--status-file", status_path.to_s, "--dry-run")
 
     assert_equal(
       [0, content, false],

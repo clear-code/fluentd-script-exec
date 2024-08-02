@@ -165,4 +165,36 @@ class ReadTest < Test::Unit::TestCase
       [status.exitstatus, result.encode("utf-8", "shift_jis"), File.exist?(status_path)]
     )
   end
+
+  test "Retry when the command fails" do
+    filepath = @tmp_dir + "test"
+    status_path = @tmp_dir + "status"
+    error_path = @tmp_dir + "error.log"
+    content = <<~CONTENT
+      sample log
+      日本語のログ
+    CONTENT
+    make_testfile(filepath, content)
+
+    command_to_succeed = "ruby exec.rb \"#{command_to_read_file(filepath)}\" --status-file #{status_path.to_s} 2> #{error_path.to_s}"
+    command_to_fail = "ruby exec.rb \"#{command_to_read_file(filepath + 'wrong-path')}\" --status-file #{status_path.to_s} 2> #{error_path.to_s}"
+
+    result, status = Open3.capture2e(command_to_fail)
+    assert_equal(
+      ["", 0],
+      [result, status.exitstatus]
+    )
+    assert do
+      not File.read(error_path).empty?
+    end
+
+    result, status = Open3.capture2e(command_to_succeed)
+    assert_equal(
+      [content, 0],
+      [result, status.exitstatus]
+    )
+    assert do
+      File.read(error_path).empty?
+    end
+  end
 end

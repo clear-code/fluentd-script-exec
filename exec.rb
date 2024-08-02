@@ -106,8 +106,11 @@ def exec_command(command, hour, status_file, dry_run)
   end
 
   standard_o, error_o, ps_status = Open3.capture3(command)
-  $stderr.puts "'#{command}' exited with return-code: #{ps_status.exitstatus}" unless ps_status.success?
   $stderr.puts error_o unless error_o.empty?
+  unless ps_status.success?
+    $stderr.puts "'#{command}' exited with return-code: #{ps_status.exitstatus}" 
+    return nil
+  end
 
   unless dry_run
     status.update_last_collection_time(current_time) if status_file

@@ -9,7 +9,6 @@ def parse_commandline_args(args)
 
   encoding = "shift_jis"
   hour = nil
-  move = false
   status_file = nil
   dry_run = false
 
@@ -17,7 +16,6 @@ def parse_commandline_args(args)
   parser.banner = <<~BANNER
     Usage: exec.rb path [options]
     Example: ruby exec.rb /path/to/file.log --hour 20 --status-file /path/to/status
-    Example: ruby exec.rb /path/to/file.log --hour 20 --move
 
   BANNER
   parser.on("--encoding ENCODING", "Encoding of the file to collect, such as utf-8, shift_jis.", "Default: #{encoding}") do |v|
@@ -25,9 +23,6 @@ def parse_commandline_args(args)
   end
   parser.on("--hour HOUR", "Execute collection only at this hour.", "Default: Disabled", Integer) do |v|
     hour = v
-  end
-  parser.on("--move", "Move the file after collecting to prevent duplicate collecting by adding `.collected` extension.", "Default: Disabled") do
-    move = true
   end
   parser.on("--status-file PATH", "Prevent duplicate collecting in the day by keeping the last collecting time in the file.", "Default: Disabled") do |v|
     status_file = v
@@ -71,7 +66,7 @@ def parse_commandline_args(args)
 
   path = args.first
 
-  return path, encoding, hour, move, status_file, dry_run
+  return path, encoding, hour, status_file, dry_run
 end
 
 class Status
@@ -110,7 +105,7 @@ def same_date?(time, another)
   time.to_date == another.to_date
 end
 
-def read(path, encoding, hour, move, status_file, dry_run)
+def read(path, encoding, hour, status_file, dry_run)
   current_time = Time.now
 
   return nil if hour and hour != current_time.hour
@@ -125,10 +120,6 @@ def read(path, encoding, hour, move, status_file, dry_run)
   content = File.read(path, mode: "r", encoding: encoding)
 
   unless dry_run
-    if move
-      FileUtils.mv(path, path + '.collected')
-    end
-
     status.update_last_collection_time(current_time) if status_file
   end
 

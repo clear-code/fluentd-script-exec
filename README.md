@@ -16,6 +16,8 @@ Example: ruby exec.rb "cat /path/to/file.log" --hour 20 --status-file /path/to/s
                                      Default: Disabled
         --status-file PATH           Prevent duplicate collecting in the day by keeping the last collecting time in the file.
                                      Default: Disabled
+        --encoding ENCODING          Encoding of the output of the command. If specified, the standart output will be converted to utf-8 from this encoding.
+                                     Default: Disabled
         --dry-run                    For test. The status file is not updated.
 ```
 

@@ -10,14 +10,14 @@ class ParseCommandlineArgsTest < Test::Unit::TestCase
     "Minimum",
     [
       ["/path/to/file.log"],
-      ["/path/to/file.log", nil, nil, false]
+      ["/path/to/file.log", nil, nil, nil, false]
     ]
   )
   data(
     "Full",
     [
-      ["/path/to/file.log", "--hour", "20", "--status-file", "/path/to/status", "--dry-run"],
-      ["/path/to/file.log", 20, "/path/to/status", true]
+      ["/path/to/file.log", "--hour", "20", "--status-file", "/path/to/status", "--encoding", "shift_jis", "--dry-run"],
+      ["/path/to/file.log", 20, "/path/to/status", "shift_jis", true]
     ]
   )
   test "Can parse correct args" do |(args, expected_results)|
@@ -28,6 +28,7 @@ class ParseCommandlineArgsTest < Test::Unit::TestCase
   data("No args", [])
   data("Invalid hour: not integer", ["/path/to/file.log", "--hour", "not integer"])
   data("Invalid hour: wrong integer", ["/path/to/file.log", "--hour", "24"])
+  data("Invalid encoding", ["/path/to/file.log", "--encoding", "invalid encoding name"])
   data("Unassumed args 2", ["/path/to/file.log", "unassumed arg"])
   test "Return nil for invalid args" do |args|
     results = parse_commandline_args(args)
@@ -71,7 +72,7 @@ class ReadTest < Test::Unit::TestCase
     assert_equal content, result
   end
 
-  test "Can read file with minimum args" do
+  test "Can read shift_jis file with minimum args" do
     filepath = @tmp_dir + "test"
     content = <<~CONTENT
       sample log
@@ -87,7 +88,23 @@ class ReadTest < Test::Unit::TestCase
     )
   end
 
-  test "Can read file with encoding utf-8" do
+  test "Can read shift_jis file with encoding option" do
+    filepath = @tmp_dir + "test"
+    content = <<~CONTENT
+      sample log
+      日本語のログ
+    CONTENT
+    make_testfile(filepath, content, encoding: "shift_jis")
+
+    result, status = Open3.capture2e("ruby", "exec.rb", command_to_read_file(filepath), "--encoding", "shift_jis")
+
+    assert_equal(
+      [0, content],
+      [status.exitstatus, result]
+    )
+  end
+
+  test "Can read utf-8 file" do
     filepath = @tmp_dir + "test"
     content = <<~CONTENT
       sample log
@@ -112,12 +129,12 @@ class ReadTest < Test::Unit::TestCase
     make_testfile(filepath, content)
 
     Timecop.freeze(2024, 7, 9, 0, 0, 0) do
-      result = exec_command(command_to_read_file(filepath), 20, nil, false)
+      result = exec_command(command_to_read_file(filepath), 20, nil, nil, false)
       assert_nil result
     end
 
     Timecop.freeze(2024, 7, 9, 20, 0, 0) do
-      result = exec_command(command_to_read_file(filepath), 20, nil, false)
+      result = exec_command(command_to_read_file(filepath), 20, nil, nil, false)
       assert_equal content, result
     end
   end
@@ -132,19 +149,19 @@ class ReadTest < Test::Unit::TestCase
     make_testfile(filepath, content)
 
     Timecop.freeze(2024, 7, 9, 20, 0, 0) do
-      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, nil, false)
       assert_equal content, result
     end
     Timecop.freeze(2024, 7, 9, 20, 59, 59) do
-      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, nil, false)
       assert_nil result
     end
     Timecop.freeze(2024, 7, 10, 0, 0, 0) do
-      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, nil, false)
       assert_nil result
     end
     Timecop.freeze(2024, 7, 10, 20, 0, 0) do
-      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, false)
+      result = exec_command(command_to_read_file(filepath), 20, status_path.to_s, nil, false)
       assert_equal content, result
     end
   end

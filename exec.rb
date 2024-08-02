@@ -8,6 +8,7 @@ require "open3"
 def parse_commandline_args(args)
   args = args.dup
 
+  encoding = nil
   hour = nil
   status_file = nil
   dry_run = false
@@ -24,6 +25,9 @@ def parse_commandline_args(args)
   end
   parser.on("--status-file PATH", "Prevent duplicate collecting in the day by keeping the last collecting time in the file.", "Default: Disabled") do |v|
     status_file = v
+  end
+  parser.on("--encoding ENCODING", "Encoding of the output of the command. If specified, the standart output will be converted to utf-8 from this encoding.", "Default: Disabled") do |v|
+    encoding = v
   end
   parser.on("--dry-run", "For test. The status file is not updated.") do
     dry_run = true
@@ -43,6 +47,16 @@ def parse_commandline_args(args)
     return nil
   end
 
+  if encoding
+    begin
+      Encoding.find(encoding)
+    rescue ArgumentError => e
+      $stderr.puts e
+      $stderr.puts parser.help
+      return nil
+    end
+  end
+
   if args.size == 0
     $stderr.puts "Need the command to exec."
     $stderr.puts parser.help
@@ -56,7 +70,7 @@ def parse_commandline_args(args)
 
   command = args.first
 
-  return command, hour, status_file, dry_run
+  return command, hour, status_file, encoding, dry_run
 end
 
 class Status
@@ -95,7 +109,7 @@ def same_date?(time, another)
   time.to_date == another.to_date
 end
 
-def exec_command(command, hour, status_file, dry_run)
+def exec_command(command, hour, status_file, encoding, dry_run)
   current_time = Time.now
 
   return nil if hour and hour != current_time.hour
@@ -111,6 +125,8 @@ def exec_command(command, hour, status_file, dry_run)
     $stderr.puts "'#{command}' exited with return-code: #{ps_status.exitstatus}" 
     return nil
   end
+
+  standard_o.encode!(Encoding::UTF_8, encoding) if encoding
 
   unless dry_run
     status.update_last_collection_time(current_time) if status_file

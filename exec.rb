@@ -3,6 +3,7 @@
 require "optparse"
 require 'fileutils'
 require "date"
+require "open3"
 
 def parse_commandline_args(args)
   args = args.dup
@@ -14,10 +15,11 @@ def parse_commandline_args(args)
 
   parser = OptionParser.new
   parser.banner = <<~BANNER
-    Usage: exec.rb path [options]
-    Example: ruby exec.rb /path/to/file.log --hour 20 --status-file /path/to/status
+    Usage: exec.rb "command" [options]
+    Example: ruby exec.rb "cat /path/to/file.log" --hour 20 --status-file /path/to/status
 
   BANNER
+
   parser.on("--encoding ENCODING", "Encoding of the file to collect, such as utf-8, shift_jis.", "Default: #{encoding}") do |v|
     encoding = v
   end
@@ -27,7 +29,7 @@ def parse_commandline_args(args)
   parser.on("--status-file PATH", "Prevent duplicate collecting in the day by keeping the last collecting time in the file.", "Default: Disabled") do |v|
     status_file = v
   end
-  parser.on("--dry-run", "For test. The file is not moved and the status file is not updated.") do
+  parser.on("--dry-run", "For test. The status file is not updated.") do
     dry_run = true
   end
 
@@ -54,7 +56,7 @@ def parse_commandline_args(args)
   end
 
   if args.size == 0
-    $stderr.puts "Need the filepath to collect."
+    $stderr.puts "Need the command to exec."
     $stderr.puts parser.help
     return nil
   end
@@ -64,9 +66,9 @@ def parse_commandline_args(args)
     return nil
   end
 
-  path = args.first
+  command = args.first
 
-  return path, encoding, hour, status_file, dry_run
+  return command, encoding, hour, status_file, dry_run
 end
 
 class Status
@@ -105,7 +107,7 @@ def same_date?(time, another)
   time.to_date == another.to_date
 end
 
-def read(path, encoding, hour, status_file, dry_run)
+def exec_command(command, encoding, hour, status_file, dry_run)
   current_time = Time.now
 
   return nil if hour and hour != current_time.hour
@@ -115,21 +117,21 @@ def read(path, encoding, hour, status_file, dry_run)
     return nil if last_collection_time and same_date?(last_collection_time, current_time)
   end
 
-  return nil unless File.exist?(path)
-
-  content = File.read(path, mode: "r", encoding: encoding)
+  standard_o, error_o, ps_status = Open3.capture3(command)
+  $stderr.puts "'#{command}' exited with return-code: #{ps_status.exitstatus}" unless ps_status.success?
+  $stderr.puts error_o unless error_o.empty?
 
   unless dry_run
     status.update_last_collection_time(current_time) if status_file
   end
 
-  content
+  standard_o
 end
 
 if __FILE__ == $PROGRAM_NAME
   args = parse_commandline_args(ARGV)
   exit 1 unless args
 
-  content = read(*args)
+  content = exec_command(*args)
   print content if content
 end

@@ -50,6 +50,14 @@ class ReadTest < Test::Unit::TestCase
     end
   end
 
+  def command_to_read
+    if /linux/ === RUBY_PLATFORM or /darwin/ =~ RUBY_PLATFORM
+      "cat"
+    else
+      "type"
+    end
+  end
+
   test "read" do
     filepath = @tmp_dir + "test"
     content = <<~CONTENT
@@ -58,7 +66,7 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content)
 
-    result, status = Open3.capture2e("ruby", "exec.rb", filepath.to_s)
+    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}")
 
     assert_equal 0, status.exitstatus
     assert_equal content, result
@@ -72,10 +80,12 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content, encoding: "shift_jis")
 
-    result, status = Open3.capture2e("ruby", "exec.rb", filepath.to_s)
+    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}")
 
-    assert_equal 0, status.exitstatus
-    assert_equal content, result.encode("utf-8", "shift_jis")
+    assert_equal(
+      [0, content],
+      [status.exitstatus, result.encode("utf-8", "shift_jis")]
+    )
   end
 
   test "Can read file with encoding utf-8" do
@@ -86,10 +96,12 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content, encoding: "utf-8")
 
-    result, status = Open3.capture2e("ruby", "exec.rb", filepath.to_s, "--encoding", "utf-8")
+    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}", "--encoding", "utf-8")
 
-    assert_equal 0, status.exitstatus
-    assert_equal content, result
+    assert_equal(
+      [0, content],
+      [status.exitstatus, result]
+    )
   end
 
   # TODO: Can't handle UTF-16.
@@ -118,12 +130,12 @@ class ReadTest < Test::Unit::TestCase
     make_testfile(filepath, content)
 
     Timecop.freeze(2024, 7, 9, 0, 0, 0) do
-      result = read(filepath.to_s, "utf-8", 20, nil, false)
+      result = exec_command("#{command_to_read} #{filepath.to_s}", "utf-8", 20, nil, false)
       assert_nil result
     end
 
     Timecop.freeze(2024, 7, 9, 20, 0, 0) do
-      result = read(filepath.to_s, "utf-8", 20, nil, false)
+      result = exec_command("#{command_to_read} #{filepath.to_s}", "utf-8", 20, nil, false)
       assert_equal content, result
     end
   end
@@ -138,19 +150,19 @@ class ReadTest < Test::Unit::TestCase
     make_testfile(filepath, content)
 
     Timecop.freeze(2024, 7, 9, 20, 0, 0) do
-      result = read(filepath.to_s, "utf-8", 20, status_path.to_s, false)
+      result = exec_command("#{command_to_read} #{filepath.to_s}", "utf-8", 20, status_path.to_s, false)
       assert_equal content, result
     end
     Timecop.freeze(2024, 7, 9, 20, 59, 59) do
-      result = read(filepath.to_s, "utf-8", 20, status_path.to_s, false)
+      result = exec_command("#{command_to_read} #{filepath.to_s}", "utf-8", 20, status_path.to_s, false)
       assert_nil result
     end
     Timecop.freeze(2024, 7, 10, 0, 0, 0) do
-      result = read(filepath.to_s, "utf-8", 20, status_path.to_s, false)
+      result = exec_command("#{command_to_read} #{filepath.to_s}", "utf-8", 20, status_path.to_s, false)
       assert_nil result
     end
     Timecop.freeze(2024, 7, 10, 20, 0, 0) do
-      result = read(filepath.to_s, "utf-8", 20, status_path.to_s, false)
+      result = exec_command("#{command_to_read} #{filepath.to_s}", "utf-8", 20, status_path.to_s, false)
       assert_equal content, result
     end
   end
@@ -164,10 +176,11 @@ class ReadTest < Test::Unit::TestCase
     CONTENT
     make_testfile(filepath, content, encoding: "shift_jis")
 
-    result, status = Open3.capture2e("ruby", "exec.rb", filepath.to_s, "--status-file", status_path.to_s, "--dry-run")
+    result, status = Open3.capture2e("ruby", "exec.rb", "#{command_to_read} #{filepath.to_s}", "--status-file", status_path.to_s, "--dry-run")
 
-    assert_equal 0, status.exitstatus
-    assert_equal content, result.encode("utf-8", "shift_jis")
-    assert_false File.exist?(status_path)
+    assert_equal(
+      [0, content, false],
+      [status.exitstatus, result.encode("utf-8", "shift_jis"), File.exist?(status_path)]
+    )
   end
 end

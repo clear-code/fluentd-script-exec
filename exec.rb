@@ -8,7 +8,6 @@ require "open3"
 def parse_commandline_args(args)
   args = args.dup
 
-  encoding = "shift_jis"
   hour = nil
   status_file = nil
   dry_run = false
@@ -20,9 +19,6 @@ def parse_commandline_args(args)
 
   BANNER
 
-  parser.on("--encoding ENCODING", "Encoding of the file to collect, such as utf-8, shift_jis.", "Default: #{encoding}") do |v|
-    encoding = v
-  end
   parser.on("--hour HOUR", "Execute collection only at this hour.", "Default: Disabled", Integer) do |v|
     hour = v
   end
@@ -36,14 +32,6 @@ def parse_commandline_args(args)
   begin
     parser.parse!(args)
   rescue OptionParser::ParseError => e
-    $stderr.puts e
-    $stderr.puts parser.help
-    return nil
-  end
-
-  begin
-    Encoding.find(encoding)
-  rescue ArgumentError => e
     $stderr.puts e
     $stderr.puts parser.help
     return nil
@@ -68,7 +56,7 @@ def parse_commandline_args(args)
 
   command = args.first
 
-  return command, encoding, hour, status_file, dry_run
+  return command, hour, status_file, dry_run
 end
 
 class Status
@@ -107,7 +95,7 @@ def same_date?(time, another)
   time.to_date == another.to_date
 end
 
-def exec_command(command, encoding, hour, status_file, dry_run)
+def exec_command(command, hour, status_file, dry_run)
   current_time = Time.now
 
   return nil if hour and hour != current_time.hour
